@@ -124,10 +124,10 @@ const HomePage = () => {
   const containerRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const [currentAttractor, setCurrentAttractor] =
-    useState<AttractorType>('lorenz');
-  const [handDetected, setHandDetected] = useState(false);
-  const [handStatus, setHandStatus] = useState('Show your hand');
+
+  const currentAttractorRef = useRef<AttractorType>('lorenz');
+  const handDetectedRef = useRef(false);
+  const handStatusRef = useRef('Show your hand');
 
   const sceneRef = useRef<THREE.Scene | null>(null);
   const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
@@ -253,9 +253,9 @@ const HomePage = () => {
           ? 4 * transition.progress * transition.progress * transition.progress
           : 1 - Math.pow(-2 * transition.progress + 2, 3) / 2;
 
-      const oldSettings = SETTINGS[currentAttractor];
+      const oldSettings = SETTINGS[currentAttractorRef.current];
       const newSettings = SETTINGS[transition.nextAttractor];
-      const oldFn = ATTRACTORS[currentAttractor];
+      const oldFn = ATTRACTORS[currentAttractorRef.current];
       const newFn = ATTRACTORS[transition.nextAttractor];
       const oldScale = oldSettings.scale * 0.6;
       const newScale = newSettings.scale * 0.6;
@@ -299,7 +299,7 @@ const HomePage = () => {
           p.y = p.targetY!;
           p.z = p.targetZ!;
         }
-        setCurrentAttractor(transition.nextAttractor);
+        currentAttractorRef.current = transition.nextAttractor;
         transition.active = false;
       }
 
@@ -308,8 +308,8 @@ const HomePage = () => {
       return;
     }
 
-    const settings = SETTINGS[currentAttractor];
-    const fn = ATTRACTORS[currentAttractor];
+    const settings = SETTINGS[currentAttractorRef.current];
+    const fn = ATTRACTORS[currentAttractorRef.current];
     const baseScale = settings.scale * 0.6;
 
     const camDist = cameraRef.current.position.length();
@@ -333,7 +333,8 @@ const HomePage = () => {
         p.x = (Math.random() - 0.5) * 2;
         p.y = (Math.random() - 0.5) * 2;
         p.z =
-          (Math.random() - 0.5) * 2 + (currentAttractor === 'lorenz' ? 25 : 0);
+          (Math.random() - 0.5) * 2 +
+          (currentAttractorRef.current === 'lorenz' ? 25 : 0);
       }
     }
     particlesRef.current.geometry.attributes.position.needsUpdate = true;
@@ -341,7 +342,8 @@ const HomePage = () => {
 
   // ===== SWITCH ATTRACTOR =====
   const switchAttractor = (name: AttractorType, animate = true) => {
-    if (transitionRef.current.active || name === currentAttractor) return;
+    if (transitionRef.current.active || name === currentAttractorRef.current)
+      return;
 
     if (animate && particlesRef.current) {
       transitionRef.current.active = true;
@@ -386,7 +388,7 @@ const HomePage = () => {
         p.newColor = new THREE.Color().setHSL(hue, sat, light);
       }
     } else {
-      setCurrentAttractor(name);
+      currentAttractorRef.current = name;
       if (cameraRef.current) {
         cameraRef.current.position.z = SETTINGS[name].cam;
       }
@@ -408,7 +410,7 @@ const HomePage = () => {
       0.1,
       1000,
     );
-    camera.position.z = SETTINGS[currentAttractor].cam;
+    camera.position.z = SETTINGS[currentAttractorRef.current].cam;
     cameraRef.current = camera;
 
     const renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -475,7 +477,7 @@ const HomePage = () => {
         video.srcObject = stream;
         await video.play();
 
-        setHandStatus('Loading model...');
+        handStatusRef.current = 'Loading model...';
 
         const { Hands } = await import('@mediapipe/hands');
         const hands = new Hands({
@@ -495,7 +497,7 @@ const HomePage = () => {
             results.multiHandLandmarks &&
             results.multiHandLandmarks.length > 0
           ) {
-            setHandDetected(true);
+            handDetectedRef.current = true;
             const hand = results.multiHandLandmarks[0];
 
             // Draw hand skeleton
@@ -550,7 +552,7 @@ const HomePage = () => {
 
             if (cameraRef.current) {
               const targetAngle = handX * Math.PI;
-              const radius = SETTINGS[currentAttractor].cam;
+              const radius = SETTINGS[currentAttractorRef.current].cam;
               cameraRef.current.position.x +=
                 (Math.sin(targetAngle) * radius -
                   cameraRef.current.position.x) *
@@ -583,7 +585,9 @@ const HomePage = () => {
             }
             const closed = curledCount >= 3;
 
-            setHandStatus(closed ? 'Fist - switching!' : 'Hand detected');
+            handStatusRef.current = closed
+              ? 'Fist - switching!'
+              : 'Hand detected';
 
             if (
               lastFistRef.current === false &&
@@ -597,7 +601,7 @@ const HomePage = () => {
                 'halvorsen',
                 'arneodo',
               ];
-              const idx = attractorList.indexOf(currentAttractor);
+              const idx = attractorList.indexOf(currentAttractorRef.current);
               switchAttractor(
                 attractorList[(idx + 1) % attractorList.length],
                 true,
@@ -608,8 +612,8 @@ const HomePage = () => {
             }
             lastFistRef.current = closed;
           } else {
-            setHandDetected(false);
-            setHandStatus('No hand detected');
+            handDetectedRef.current = false;
+            handStatusRef.current = 'No hand detected';
             lastFistRef.current = null;
             if (controlsRef.current) {
               controlsRef.current.autoRotate = true;
@@ -618,7 +622,7 @@ const HomePage = () => {
         });
 
         await hands.initialize();
-        setHandStatus('Show your hand');
+        handStatusRef.current = 'Show your hand';
         handsRef.current = hands;
 
         const detect = () => {
@@ -630,7 +634,7 @@ const HomePage = () => {
         detect();
       } catch (e) {
         console.error('Hand tracking error:', e);
-        setHandStatus('Hand tracking failed');
+        handStatusRef.current = 'Hand tracking failed';
       }
     };
 
@@ -653,7 +657,7 @@ const HomePage = () => {
         script.parentNode.removeChild(script);
       }
     };
-  }, [currentAttractor]);
+  }, [currentAttractorRef.current]);
 
   return (
     <div className="fixed inset-0 overflow-hidden bg-black">
@@ -668,7 +672,7 @@ const HomePage = () => {
 
         <div className="relative mb-3.5">
           <select
-            value={currentAttractor}
+            value={currentAttractorRef.current}
             onChange={(e) =>
               switchAttractor(e.target.value as AttractorType, true)
             }
@@ -685,13 +689,13 @@ const HomePage = () => {
         <div className="flex items-center gap-2 border-t border-blue-500/10 pt-3">
           <div
             className={`h-1.5 w-1.5 rounded-full shadow-[0_0_6px] transition-all ${
-              handDetected
+              handDetectedRef.current
                 ? 'bg-emerald-400/90 shadow-emerald-400/60'
                 : 'bg-red-400/80 shadow-red-400/40'
             }`}
           />
           <span className="text-[11px] font-normal text-blue-300/60">
-            {handDetected ? 'Hand detected' : 'No hand'}
+            {handDetectedRef.current ? 'Hand detected' : 'No hand'}
           </span>
         </div>
       </div>
@@ -700,10 +704,12 @@ const HomePage = () => {
       <div className="fixed right-4 bottom-[142px] z-[100] flex items-center gap-2 rounded-md border border-white/10 bg-black/70 px-3 py-1.5 text-xs backdrop-blur-[10px]">
         <div
           className={`h-2 w-2 rounded-full transition-all ${
-            handDetected ? 'bg-emerald-400 shadow-[0_0_8px_#5f5]' : 'bg-red-400'
+            handDetectedRef.current
+              ? 'bg-emerald-400 shadow-[0_0_8px_#5f5]'
+              : 'bg-red-400'
           }`}
         />
-        <span>{handStatus}</span>
+        <span>{handStatusRef.current}</span>
       </div>
 
       {/* Video Container */}
